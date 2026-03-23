@@ -370,6 +370,16 @@ td.qty-cell    { font-family: 'Space Mono',monospace; font-weight: 700; color: v
     <h2>📋 Novo Registo</h2>
 
     <div class="field">
+      <label>👤 Motorista</label>
+      <div class="pill-group" id="motoristas"></div>
+    </div>
+
+    <div class="field">
+      <label>📍 Máquina</label>
+      <div class="pill-group" id="maquinas"></div>
+    </div>
+
+    <div class="field">
       <label>Nº Artigo</label>
       <div class="pill-group" id="artigos"></div>
     </div>
@@ -379,13 +389,8 @@ td.qty-cell    { font-family: 'Space Mono',monospace; font-weight: 700; color: v
       <div class="pill-group" id="tipos"></div>
     </div>
 
-    <div class="field">
-      <label>Quantidade</label>
-      <div class="pill-group qty-group" id="qtds"></div>
-    </div>
-
     <button class="btn-add" id="btnAdd" onclick="addRow()">✚ Adicionar Registo</button>
-    <div class="validation-msg" id="valMsg">⚠ Selecciona artigo, tipo e quantidade antes de adicionar.</div>
+    <div class="validation-msg" id="valMsg">⚠ Selecciona motorista, máquina, artigo e tipo antes de adicionar.</div>
   </div>
 
   <!-- TABLE -->
@@ -399,9 +404,10 @@ td.qty-cell    { font-family: 'Space Mono',monospace; font-weight: 700; color: v
         <thead>
           <tr>
             <th>Hora</th>
+            <th>Motorista</th>
+            <th>Máquina</th>
             <th>Artigo</th>
             <th>Tipo</th>
-            <th>Qtd</th>
             <th>☁️</th>
             <th></th>
           </tr>
@@ -462,10 +468,14 @@ const TODOS_TIPOS = [
   'Bouquet Rosas Laranja','Outro',
 ];
 
+const MOTORISTAS = ['Dario','Nelson','Leonardo','Carlos','Ricardo','Elizabeth','Daniel','Bruno'];
+const MAQUINAS   = ['Mar Shopping Algarve','Venepao Almancil'];
+
 // ─── STATE ────────────────────────────────────────────────────────────────
-let selArtigo = null, selTipo = null, selQtd = null;
+let selArtigo = null, selTipo = null, selMotorista = null, selMaquina = null;
+const selQtd = 1;
 let rows = JSON.parse(localStorage.getItem('abates_rows') || '[]');
-let scriptUrl = localStorage.getItem('abates_script_url') || '';
+let scriptUrl = localStorage.getItem('abates_script_url') || 'https://script.google.com/macros/s/AKfycbwPt5n1M8dD4SDJ-_zMfq22mBPNTx_Iu5invmJ7veIO-18p5yOYx58uZ26rqvXwkps/exec';
 
 // ─── DATE ─────────────────────────────────────────────────────────────────
 const MONTHS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
@@ -520,12 +530,14 @@ async function syncRow(row) {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
-        data: row.data,
-        hora: row.hora,
-        artigo: row.artigo,
-        nomeArtigo: row.nomeArtigo || '',
-        tipo: row.tipo,
-        quantidade: row.qtd
+        data:        row.data,
+        hora:        row.hora,
+        motorista:   row.motorista,
+        maquina:     row.maquina,
+        artigo:      row.artigo,
+        nomeArtigo:  row.nomeArtigo || '',
+        tipo:        row.tipo,
+        quantidade:  row.qtd
       })
     });
     const json = await res.json();
@@ -574,13 +586,14 @@ function selectPill(btn, value, key, containerId) {
   btn.classList.add('selected');
   if (key === 'artigo') {
     selArtigo = value;
-    // Auto-seleccionar o tipo associado
     const tipoPadrao = ARTIGOS_MAP[value]?.tipo;
     if (tipoPadrao) autoSelectTipo(tipoPadrao);
   } else if (key === 'tipo') {
     selTipo = value;
-  } else if (key === 'qty') {
-    selQtd = value;
+  } else if (key === 'motorista') {
+    selMotorista = value;
+  } else if (key === 'maquina') {
+    selMaquina = value;
   }
   document.getElementById('valMsg').style.display = 'none';
 }
@@ -608,31 +621,34 @@ function buildArtigosPills() {
   });
 }
 
+buildPills('motoristas', MOTORISTAS, 'motorista', 'motorista');
+buildPills('maquinas',   MAQUINAS,   'maquina',   'maquina');
 buildArtigosPills();
 buildPills('tipos', TODOS_TIPOS, 'tipo', 'tipo');
-buildQtds();
 
 // ─── ADD ROW ──────────────────────────────────────────────────────────────
 function addRow() {
-  if (!selArtigo || !selTipo || !selQtd) {
+  if (!selMotorista || !selMaquina || !selArtigo || !selTipo) {
     document.getElementById('valMsg').style.display = 'block';
     return;
   }
   const row = {
-    id:        Date.now(),
-    hora:      timeStr(),
-    data:      todayStr(),
-    artigo:    selArtigo,
-    nomeArtigo: ARTIGOS_MAP[selArtigo]?.nome || selArtigo,
-    tipo:      selTipo,
-    qtd:       selQtd,
-    syncState: scriptUrl ? 'pending' : 'no-url',
+    id:          Date.now(),
+    hora:        timeStr(),
+    data:        todayStr(),
+    motorista:   selMotorista,
+    maquina:     selMaquina,
+    artigo:      selArtigo,
+    nomeArtigo:  ARTIGOS_MAP[selArtigo]?.nome || selArtigo,
+    tipo:        selTipo,
+    qtd:         1,
+    syncState:   scriptUrl ? 'pending' : 'no-url',
   };
   rows.push(row);
   saveLocal();
   renderTable();
   showToast('✓ Registo adicionado!', 'ok');
-  selArtigo = selTipo = selQtd = null;
+  selArtigo = selTipo = selMotorista = selMaquina = null;
   document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
   if (scriptUrl) syncRow(row);
 }
@@ -662,9 +678,10 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--muted);font-family:'Space Mono',monospace;font-size:12px">${r.hora}</td>
+      <td>${r.motorista || '—'}</td>
+      <td style="font-size:12px">${r.maquina || '—'}</td>
       <td class="artigo-cell"><span>${r.artigo}</span><br><span style="font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif">${r.nomeArtigo || ''}</span></td>
       <td>${r.tipo}</td>
-      <td class="qty-cell">${r.qtd}</td>
       <td>${syncIcon(r.syncState)}</td>
       <td><button class="del-btn" onclick="deleteRow(${r.id})" title="Remover">✕</button></td>
     `;
@@ -682,11 +699,11 @@ function deleteRow(id) {
 function exportXLSX() {
   if (!rows.length) return;
   const data = [
-    ['Hora','Data','Nº Artigo','Nome do Produto','Tipo','Quantidade','Sincronizado'],
-    ...rows.map(r => [r.hora, r.data, r.artigo, r.nomeArtigo || '', r.tipo, r.qtd, r.syncState === 'ok' ? 'Sim' : 'Não'])
+    ['Hora','Data','Motorista','Máquina','Nº Artigo','Nome do Produto','Tipo','Sincronizado'],
+    ...rows.map(r => [r.hora, r.data, r.motorista, r.maquina, r.artigo, r.nomeArtigo || '', r.tipo, r.syncState === 'ok' ? 'Sim' : 'Não'])
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:8},{wch:12},{wch:10},{wch:24},{wch:22},{wch:10},{wch:14}];
+  ws['!cols'] = [{wch:8},{wch:12},{wch:12},{wch:22},{wch:10},{wch:24},{wch:22},{wch:14}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Abates');
   const tag = todayStr().replace(/\//g,'-');
